@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Let's take a minute to relax first</title>
+    <style>
+        /* Basic page reset */
+        body, html {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            overflow: hidden;
+        }
+
+        /* Styles for the background video */
+        #bg-video {
+            position: fixed; /* Fixes the video to the viewport */
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover; /* Ensures video covers the screen without distortion */
+            z-index: -1; /* Places the video BEHIND all other content */
+        }
+
+        /* A container to center the buttons on the page */
+        .content-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 150vh; /* Full viewport height */
+        }
+
+        /* Container for the buttons themselves */
+        .button-container {
+            display: flex;
+            gap: 300px; /* Adjust the space between the buttons */
+        }
+
+        /* Styling for the choice buttons (the images) */
+        .choice-btn {
+            width: 180px; /* Example size, adjust as needed */
+            height: auto;
+            cursor: pointer;
+            transition: transform 0.2s ease-in-out;
+        }
+
+        /* Add a subtle visual effect when hovering over the buttons */
+        .choice-btn:hover {
+            transform: scale(1.05);
+        }
+    </style>
+</head>
+<body>
+    <video id="bg-video" autoplay loop muted playsinline>
+        <source src="animations/breathing_question-background.mp4" type="video/mp4">
+        Your browser does not support the video tag.
+    </video>
+
+    <audio id="bg-audio" loop>
+        <source src="audio/breathing_question-music.mp3" type="audio/mpeg">
+        Your browser does not support the audio element.
+    </audio>
+    
+    <div class="content-container">
+        <div class="button-container">
+            <img src="buttons/breathing_yes.png" alt="Yes" class="choice-btn" onclick="goToBreathingSession()">
+            <img src="buttons/breathing_no.png" alt="No" class="choice-btn" onclick="goToPrivacyQuestion()">
+        </div>
+    </div>
+    
+    <script>
+        // Navigates to the breathing session page
+        function goToBreathingSession() {
+            window.location.href = 'breathing-session.html';
+        }
+        
+        // Navigates to the privacy question page
+        function goToPrivacyQuestion() {
+            window.location.href = 'privacy-question.html';
+        }
+
+        // --- NEW JAVASCRIPT FOR ROBUST AUDIO PLAYBACK ---
+
+        window.addEventListener('load', () => {
+            const bgAudio = document.getElementById('bg-audio');
+            
+            // Try to play the audio immediately
+            let playPromise = bgAudio.play();
+
+            if (playPromise !== undefined) {
+                playPromise.catch(error => {
+                    // Autoplay was prevented.
+                    // We'll wait for the user to click anywhere on the page.
+                    console.log("Autoplay blocked. Waiting for user interaction.");
+                    document.body.addEventListener('click', () => {
+                        bgAudio.play();
+                    }, { once: true }); // { once: true } makes it only run on the first click
+                });
+            }
+        });
+    </script>
+</body>
+</html>

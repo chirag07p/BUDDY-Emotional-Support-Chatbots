@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Breathing Session</title>
+    <style>
+        /* Basic page reset to remove default spacing */
+        body, html {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            overflow: hidden;
+            background-color: black; /* Fallback color */
+        }
+
+        /* Styles for the full-screen background video */
+        #breathing-video {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;  /* 100% of viewport width */
+            height: 100vh; /* 100% of viewport height */
+            object-fit: cover; /* Ensures video covers the screen without distortion */
+        }
+    </style>
+</head>
+<body>
+    <video id="breathing-video" autoplay muted playsinline>
+        <source src="animations/breathing-session.mp4" type="video/mp4">
+        Your browser does not support the video tag.
+    </video>
+    
+    <script>
+        // Get a reference to the video element from the page
+        const breathingVideo = document.getElementById('breathing-video');
+
+        // This function will handle the navigation to the next page
+        function goToPrivacyQuestion() {
+            window.location.href = 'privacy-question.html';
+        }
+
+        // Add a listener that waits for the video to finish playing
+        // When the 'ended' event happens, it calls the navigation function
+        breathingVideo.addEventListener('ended', goToPrivacyQuestion);
+    </script>
+</body>
+</html>
