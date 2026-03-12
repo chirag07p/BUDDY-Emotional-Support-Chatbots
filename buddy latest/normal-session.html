@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Buddy - Normal Chat Session</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html, body {
+            height: 100%;
+            width: 100%;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        /* Background Image - Static default background */
+        .background-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            z-index: 0;
+            background-image: url('images/idle-background.png');
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            background-color: #1a1a1a; /* Fallback color */
+        }
+
+        /* Video Container - Overlay on top of background */
+        .video-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            z-index: 1;
+            display: none;
+        }
+
+        .video-container.active {
+            display: block;
+        }
+
+        #buddyVideo {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            width: 100%;
+            height: 100%;
+            transform: translate(-50%, -50%);
+            object-fit: cover;
+        }
+
+        /* Chat Container - Overlay on top of video */
+        .chat-container {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            z-index: 10;
+            padding: 20px;
+            background: linear-gradient(to top, rgba(0, 0, 0, 0.85) 0%, rgba(0, 0, 0, 0.6) 50%, transparent 100%);
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            max-height: 50vh;
+            pointer-events: none;
+        }
+
+        .chat-container > * {
+            pointer-events: auto;
+        }
+
+        .chat-messages {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            overflow-y: auto;
+            padding: 0 10px;
+            max-height: 30vh;
+        }
+
+        .chat-messages::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .chat-messages::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+        }
+
+        .chat-messages::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: 10px;
+        }
+
+        .message {
+            padding: 12px 18px;
+            border-radius: 18px;
+            max-width: 80%;
+            word-wrap: break-word;
+            animation: slideIn 0.3s ease-out;
+            opacity: 0;
+            animation-fill-mode: forwards;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes fadeOut {
+            from {
+                opacity: 1;
+                transform: translateY(0);
+            }
+            to {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+        }
+
+        .message.fade-out {
+            animation: fadeOut 0.5s ease-out forwards;
+        }
+
+        .user-message {
+            background: #007bff;
+            color: white;
+            align-self: flex-end;
+            margin-left: auto;
+            box-shadow: 0 2px 10px rgba(0, 123, 255, 0.3);
+        }
+
+        .buddy-message {
+            background: rgba(255, 255, 255, 0.95);
+            color: #333;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            align-self: flex-start;
+            margin-right: auto;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+        }
+
+        .system-message {
+            background: rgba(248, 249, 250, 0.9);
+            color: #666;
+            border: 1px solid rgba(222, 226, 230, 0.5);
+            align-self: center;
+            font-style: italic;
+            font-size: 0.9em;
+        }
+
+        .message-sender {
+            font-weight: 600;
+            font-size: 0.85em;
+            margin-bottom: 4px;
+            opacity: 0.8;
+        }
+
+        .chat-input-container {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        #chatInput {
+            flex: 1;
+            padding: 15px 20px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 25px;
+            font-size: 16px;
+            background: rgba(255, 255, 255, 0.95);
+            color: #333;
+            outline: none;
+            transition: all 0.3s ease;
+        }
+
+        #chatInput:focus {
+            border-color: #007bff;
+            box-shadow: 0 0 15px rgba(0, 123, 255, 0.4);
+            background: rgba(255, 255, 255, 1);
+        }
+        
+        .send-btn, .end-btn {
+            padding: 15px 20px;
+            border: none;
+            border-radius: 50%;
+            font-size: 18px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: rgba(255, 255, 255, 0.95);
+            color: #007bff;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            width: 55px;
+            height: 55px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+        }
+        
+        .send-btn:disabled {
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+
+        .send-btn:hover:not(:disabled) {
+            transform: scale(1.1);
+            background: #007bff;
+            color: white;
+            box-shadow: 0 5px 20px rgba(0, 123, 255, 0.5);
+        }
+
+        .end-btn {
+            background: rgba(220, 53, 69, 0.95);
+            color: white;
+        }
+
+        .end-btn:hover {
+            background: #c82333;
+            transform: scale(1.1);
+            box-shadow: 0 5px 20px rgba(220, 53, 69, 0.5);
+        }
+
+        .typing-indicator {
+            display: none;
+            padding: 12px 18px;
+            border-radius: 18px;
+            background: rgba(255, 255, 255, 0.95);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            max-width: 80px;
+            align-self: flex-start;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+        }
+
+        .typing-indicator.active {
+            display: flex;
+            align-items: center;
+            animation: slideIn 0.3s ease-out forwards;
+        }
+
+        .typing-dots {
+            display: flex;
+            gap: 5px;
+            align-items: center;
+        }
+
+        .typing-dots span {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #007bff;
+            animation: typing 1.4s infinite;
+        }
+
+        .typing-dots span:nth-child(2) {
+            animation-delay: 0.2s;
+        }
+
+        .typing-dots span:nth-child(3) {
+            animation-delay: 0.4s;
+        }
+
+        @keyframes typing {
+            0%, 60%, 100% {
+                transform: translateY(0);
+                opacity: 0.7;
+            }
+            30% {
+                transform: translateY(-10px);
+                opacity: 1;
+            }
+        }
+
+        .status-indicator {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 15;
+            padding: 10px 20px;
+            border-radius: 20px;
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            font-size: 14px;
+            font-weight: 600;
+            display: none;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+        }
+
+        .status-indicator.active {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div class="status-indicator" id="statusIndicator">🎤 Listening...</div>
+
+    <div class="background-container"></div>
+
+    <div class="video-container" id="videoContainer">
+        <video id="buddyVideo" autoplay loop muted playsinline></video>
+    </div>
+
+    <div class="chat-container">
+        <div class="chat-messages" id="chatMessages"></div>
+
+        <div class="typing-indicator" id="typingIndicator">
+            <div class="typing-dots">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        </div>
+
+        <div class="chat-input-container">
+            <input type="text" id="chatInput" placeholder="Type your message...">
+            <button class="send-btn" id="sendBtn" title="Send Message">📤</button>
+            <button class="end-btn" id="endBtn" title="End Session">⏹️</button>
+        </div>
+    </div>
+
+    <script>
+        const ANIMATIONS = {
+    listening: 'animations/nodding-background.mp4',
+    talking: 'animations/talking-background.mp4'
+};
+
+let currentState = 'idle';
+let isProcessing = false;
+let userName = localStorage.getItem('userName') || `User_${Math.random().toString(36).substr(2, 5)}`;
+
+const video = document.getElementById('buddyVideo');
+const videoContainer = document.getElementById('videoContainer');
+const chatMessages = document.getElementById('chatMessages');
+const chatInput = document.getElementById('chatInput');
+const sendBtn = document.getElementById('sendBtn');
+const endBtn = document.getElementById('endBtn');
+const typingIndicator = document.getElementById('typingIndicator');
+const statusIndicator = document.getElementById('statusIndicator');
+
+function setAnimation(state) {
+    // FIXED: Only change animation if it's different from current state
+    if (currentState === state) {
+        return; // Already in this state, don't restart
+    }
+
+    if (state === 'idle') {
+        // Show static PNG background, hide video
+        videoContainer.classList.remove('active');
+        currentState = 'idle';
+    } else if (ANIMATIONS[state]) {
+        // Show video animation
+        currentState = state;
+        video.src = ANIMATIONS[state];
+        video.loop = true;
+        video.load();
+        video.play().catch(e => console.error('Video play error:', e));
+        videoContainer.classList.add('active');
+    }
+}
+
+function addMessage(sender, text, isUser = false) {
+    const messageDiv = document.createElement('div');
+    messageDiv.className = `message ${isUser ? 'user-message' : (sender === 'System' ? 'system-message' : 'buddy-message')}`;
+    
+    const senderSpan = document.createElement('div');
+    senderSpan.className = 'message-sender';
+    senderSpan.textContent = sender;
+    
+    const textDiv = document.createElement('div');
+    textDiv.textContent = text;
+    
+    messageDiv.appendChild(senderSpan);
+    messageDiv.appendChild(textDiv);
+    chatMessages.appendChild(messageDiv);
+    
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+}
+
+function clearMessages() {
+    const messages = chatMessages.querySelectorAll('.message');
+    messages.forEach((msg, index) => {
+        setTimeout(() => {
+            msg.classList.add('fade-out');
+            setTimeout(() => msg.remove(), 500);
+        }, index * 100);
+    });
+}
+
+async function playAudio(text) {
+    try {
+        const response = await fetch('http://127.0.0.1:5000/speak', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ text: text })
+        });
+        
+        if (!response.ok) {
+            throw new Error('Failed to generate speech');
+        }
+        
+        const audioBlob = await response.blob();
+        const audioUrl = URL.createObjectURL(audioBlob);
+        const audio = new Audio(audioUrl);
+        
+        return new Promise((resolve, reject) => {
+            audio.onended = () => {
+                URL.revokeObjectURL(audioUrl);
+                resolve();
+            };
+            
+            audio.onerror = (error) => {
+                URL.revokeObjectURL(audioUrl);
+                reject(error);
+            };
+            
+            audio.play().catch(reject);
+        });
+        
+    } catch (error) {
+        console.error('Error playing audio:', error);
+        throw error;
+    }
+}
+
+async function sendMessage() {
+    const message = chatInput.value.trim();
+    if (!message || isProcessing) return;
+
+    isProcessing = true;
+    chatInput.disabled = true;
+    sendBtn.disabled = true;
+    
+    clearMessages();
+    await new Promise(resolve => setTimeout(resolve, 600));
+    
+    addMessage('YOU', message, true);
+    chatInput.value = '';
+    setAnimation('listening');
+    typingIndicator.classList.add('active');
+
+    try {
+        const response = await fetch('http://127.0.0.1:5000/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ message: message, user_name: userName })
+        });
+
+        if (!response.ok) throw new Error(`Server error: ${response.status}`);
+        
+        const data = await response.json();
+        
+        typingIndicator.classList.remove('active');
+        
+        if (data.status === 'success' && data.response) {
+            addMessage('Buddy', data.response, false);
+            
+            setAnimation('talking');
+            
+            try {
+                await playAudio(data.response);
+            } catch (audioError) {
+                console.error('Audio playback error:', audioError);
+            }
+            
+            setAnimation('idle');
+        } else {
+            addMessage('Buddy', data.response || 'Sorry, something went wrong.', false);
+            setAnimation('idle');
+        }
+        
+    } catch (error) {
+        console.error('Error:', error);
+        addMessage('System', 'Connection error. Please check if the server is running.', false);
+        setAnimation('idle');
+    } finally {
+        isProcessing = false;
+        chatInput.disabled = false;
+        sendBtn.disabled = false;
+        chatInput.focus();
+    }
+}
+
+function endSession() {
+    window.location.href = 'end-session.html';
+}
+
+sendBtn.addEventListener('click', sendMessage);
+
+chatInput.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        sendMessage();
+    }
+});
+
+// FIXED: This now checks if text exists and only switches animation if needed
+chatInput.addEventListener('input', () => {
+    if (!isProcessing) {
+        if (chatInput.value.trim()) {
+            // Only switch to listening if not already there
+            setAnimation('listening');
+        } else {
+            // Only switch to idle if input is empty
+            setAnimation('idle');
+        }
+    }
+});
+
+endBtn.addEventListener('click', endSession);
+
+window.addEventListener('load', () => {
+    setAnimation('idle');
+    
+    setTimeout(() => {
+        addMessage('Buddy', `Hi friend! How are you feeling today?`, false);
+    }, 1000);
+});
+
+    </script>
+</body>
+</html>

@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wanna talk in private ?</title>
+    <style>
+        /* Basic page reset */
+        body, html {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            overflow: hidden;
+        }
+
+        /* Styles for the background video */
+        #bg-video {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            z-index: -1; /* Places the video BEHIND all other content */
+        }
+
+        /* A container to center the buttons on the page */
+        .content-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 150vh; /* Full viewport height */
+        }
+
+        /* Container for the buttons themselves */
+        .button-container {
+            display: flex;
+            gap: 300px; /* Adjust the space between the buttons */
+        }
+
+        /* Styling for the choice buttons (the images) */
+        .choice-btn {
+            width: 180px; /* Example size, adjust as needed */
+            height: auto;
+            cursor: pointer;
+            transition: transform 0.2s ease-in-out;
+        }
+
+        /* Add a subtle visual effect when hovering over the buttons */
+        .choice-btn:hover {
+            transform: scale(1.05);
+        }
+    </style>
+</head>
+<body>
+    <video id="bg-video" autoplay loop muted playsinline>
+        <source src="animations/privacy_question-background.mp4" type="video/mp4">
+        Your browser does not support the video tag.
+    </video>
+
+    <audio id="bg-audio" loop> <source src="audio/privacy_question-audio.mp3" type="audio/mpeg">
+        Your browser does not support the audio element.
+    </audio>
+    
+    <div class="content-container">
+        <div class="button-container">
+            <img src="buttons/privacy_yes.png" alt="Yes" class="choice-btn" onclick="goToPrivateQuestion()">
+            
+            <img src="buttons/privacy_no.png" alt="No" class="choice-btn" onclick="goToNormalSession()">
+        </div>
+    </div>
+    
+    <script>
+        // This function is called by the "YES" button
+        function goToPrivateQuestion() {
+            window.location.href = 'private_session.html';
+        }
+        
+        // This function is called by the "NO" button
+        function goToNormalSession() {
+            window.location.href = 'normal-session.html';
+        }
+
+        // --- NEW JAVASCRIPT FOR ROBUST AUDIO PLAYBACK ---
+
+        window.addEventListener('load', () => {
+            const bgAudio = document.getElementById('bg-audio');
+            
+            // Try to play the audio immediately
+            let playPromise = bgAudio.play();
+
+            if (playPromise !== undefined) {
+                playPromise.catch(error => {
+                    // Autoplay was prevented.
+                    // We'll wait for the user to click anywhere on the page.
+                    console.log("Autoplay blocked. Waiting for user interaction.");
+                    document.body.addEventListener('click', () => {
+                        bgAudio.play();
+                    }, { once: true }); // { once: true } makes it only run on the first click
+                });
+            }
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,599 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Buddy - Hands-Free Session</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html, body {
+            height: 100%;
+            width: 100%;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #1a1a1a;
+        }
+
+        /* Background Image - Static default background */
+        .background-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            z-index: 0;
+            background-image: url('images/idle-background.png'); /* Ensure you have this image */
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+        }
+
+        /* Video Container - Overlay on top of background */
+        .video-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            z-index: 1;
+            display: none;
+        }
+
+        .video-container.active {
+            display: block;
+        }
+
+        #buddyVideo {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            width: 100%;
+            height: 100%;
+            transform: translate(-50%, -50%);
+            object-fit: cover;
+        }
+
+        /* Chat Container - Overlay on top of video */
+        .chat-container {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            z-index: 10;
+            padding: 20px;
+            background: linear-gradient(to top, rgba(0, 0, 0, 0.85) 0%, rgba(0, 0, 0, 0.6) 50%, transparent 100%);
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            max-height: 50vh;
+        }
+
+        .chat-messages {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            overflow-y: auto;
+            padding: 0 10px;
+            max-height: 30vh;
+            min-height: 10vh; /* Ensure some space even when empty */
+        }
+
+        .chat-messages::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .chat-messages::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+        }
+
+        .chat-messages::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: 10px;
+        }
+
+        .message {
+            padding: 12px 18px;
+            border-radius: 18px;
+            max-width: 80%;
+            word-wrap: break-word;
+            animation: slideIn 0.3s ease-out;
+            opacity: 0;
+            animation-fill-mode: forwards;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes fadeOut {
+            from {
+                opacity: 1;
+                transform: translateY(0);
+            }
+            to {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+        }
+
+        .message.fade-out {
+            animation: fadeOut 0.5s ease-out forwards;
+        }
+
+        .user-message {
+            background: #007bff;
+            color: white;
+            align-self: flex-end;
+            margin-left: auto;
+            box-shadow: 0 2px 10px rgba(0, 123, 255, 0.3);
+        }
+
+        .buddy-message {
+            background: rgba(255, 255, 255, 0.95);
+            color: #333;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            align-self: flex-start;
+            margin-right: auto;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+        }
+
+        .system-message {
+            background: rgba(248, 249, 250, 0.9);
+            color: #666;
+            border: 1px solid rgba(222, 226, 230, 0.5);
+            align-self: center;
+            font-style: italic;
+            font-size: 0.9em;
+        }
+
+        .message-sender {
+            font-weight: 600;
+            font-size: 0.85em;
+            margin-bottom: 4px;
+            opacity: 0.8;
+        }
+
+        /* Bottom controls container */
+        .controls-container {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .status-indicator {
+            flex: 1;
+            padding: 15px 20px;
+            border-radius: 25px;
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            font-size: 16px;
+            font-weight: 600;
+            text-align: center;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            transition: all 0.3s ease;
+        }
+        
+        /* Mic icon animation */
+        .status-indicator .mic-icon {
+            font-size: 20px;
+            animation: none;
+            transition: all 0.3s ease;
+        }
+        .status-indicator.listening .mic-icon {
+            animation: pulse 1.5s infinite;
+            color: #00ff00; /* Green glow for listening */
+        }
+        .status-indicator.processing .mic-icon {
+            color: #ffc107; /* Yellow for processing */
+        }
+        .status-indicator.disconnected .mic-icon {
+            color: #dc3545; /* Red for disconnected */
+        }
+        
+        @keyframes pulse {
+            0% { transform: scale(1); opacity: 0.7; }
+            50% { transform: scale(1.1); opacity: 1; }
+            100% { transform: scale(1); opacity: 0.7; }
+        }
+
+
+        .end-btn {
+            padding: 15px 20px;
+            border: none;
+            border-radius: 50%;
+            font-size: 18px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: rgba(220, 53, 69, 0.95);
+            color: white;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            width: 55px;
+            height: 55px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+        }
+
+        .end-btn:hover {
+            background: #c82333;
+            transform: scale(1.1);
+            box-shadow: 0 5px 20px rgba(220, 53, 69, 0.5);
+        }
+
+        /* Typing indicator for Buddy */
+        .typing-indicator {
+            display: none;
+            padding: 12px 18px;
+            border-radius: 18px;
+            background: rgba(255, 255, 255, 0.95);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            max-width: 80px;
+            align-self: flex-start;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+        }
+
+        .typing-indicator.active {
+            display: flex;
+            align-items: center;
+            animation: slideIn 0.3s ease-out forwards;
+        }
+
+        .typing-dots {
+            display: flex;
+            gap: 5px;
+            align-items: center;
+        }
+
+        .typing-dots span {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #007bff;
+            animation: typing 1.4s infinite;
+        }
+
+        .typing-dots span:nth-child(2) {
+            animation-delay: 0.2s;
+        }
+
+        .typing-dots span:nth-child(3) {
+            animation-delay: 0.4s;
+        }
+
+        @keyframes typing {
+            0%, 60%, 100% {
+                transform: translateY(0);
+                opacity: 0.7;
+            }
+            30% {
+                transform: translateY(-10px);
+                opacity: 1;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="background-container"></div>
+
+    <div class="video-container" id="videoContainer">
+        <video id="buddyVideo" autoplay loop muted playsinline></video>
+    </div>
+
+    <div class="chat-container">
+        <div class="chat-messages" id="chatMessages">
+            <!-- Messages will be added here dynamically -->
+        </div>
+
+        <div class="typing-indicator" id="typingIndicator">
+            <div class="typing-dots">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        </div>
+
+        <div class="controls-container">
+            <div class="status-indicator" id="statusIndicator">
+                <span class="mic-icon">🎤</span>
+                <span id="statusText">Connecting...</span>
+            </div>
+            <button class="end-btn" id="endBtn" title="End Session">⏹️</button>
+        </div>
+    </div>
+
+    <script>
+        // --- Configuration ---
+        const ANIMATIONS = {
+            listening: 'animations/nodding-background.mp4',
+            talking: 'animations/talking-background.mp4'
+        };
+        // ASSUMPTION: Your WebSocket server is running at this endpoint
+        const WS_URL = 'ws://127.0.0.1:5000/ws_hands_free'; 
+        // ASSUMPTION: Your HTTP server (from base_app.py) is running here
+        const HTTP_SERVER_URL = 'http://127.0.0.1:5000';
+
+        // --- State ---
+        let currentState = 'idle';
+        let isBuddySpeaking = false;
+        let webSocket;
+        let userName = localStorage.getItem('userName') || `User_${Math.random().toString(36).substr(2, 5)}`;
+        let reconnectInterval;
+
+        // --- DOM Elements ---
+        const video = document.getElementById('buddyVideo');
+        const videoContainer = document.getElementById('videoContainer');
+        const chatMessages = document.getElementById('chatMessages');
+        const endBtn = document.getElementById('endBtn');
+        const typingIndicator = document.getElementById('typingIndicator');
+        const statusIndicator = document.getElementById('statusIndicator');
+        const statusText = document.getElementById('statusText');
+
+        // --- Core Functions ---
+
+        /**
+         * Sets the background animation (or static image).
+         * @param {string} state - 'idle', 'listening', or 'talking'
+         */
+        function setAnimation(state) {
+            if (currentState === state && state !== 'idle') {
+                return; // Already in this state
+            }
+
+            if (state === 'idle') {
+                videoContainer.classList.remove('active');
+                currentState = 'idle';
+            } else if (ANIMATIONS[state]) {
+                currentState = state;
+                video.src = ANIMATIONS[state];
+                video.loop = true;
+                video.load();
+                video.play().catch(e => console.error('Video play error:', e));
+                videoContainer.classList.add('active');
+            }
+        }
+
+        /**
+         * Updates the status indicator text and style.
+         * @param {string} text - The text to display
+         * @param {string} status - 'listening', 'processing', 'disconnected', 'connected'
+         */
+        function updateStatus(text, status) {
+            statusText.textContent = text;
+            statusIndicator.className = 'status-indicator'; // Reset classes
+            if (status) {
+                statusIndicator.classList.add(status);
+            }
+        }
+
+        /**
+         * Adds a message to the chat UI.
+         * @param {string} sender - 'YOU', 'Buddy', or 'System'
+         * @param {string} text - The message content
+         */
+        function addMessage(sender, text) {
+            const isUser = sender === 'YOU';
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${isUser ? 'user-message' : (sender === 'System' ? 'system-message' : 'buddy-message')}`;
+            
+            const senderSpan = document.createElement('div');
+            senderSpan.className = 'message-sender';
+            senderSpan.textContent = sender;
+            
+            const textDiv = document.createElement('div');
+            textDiv.textContent = text;
+            
+            messageDiv.appendChild(senderSpan);
+            messageDiv.appendChild(textDiv);
+            chatMessages.appendChild(messageDiv);
+            
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        /**
+         * Fades out and removes all messages.
+         */
+        function clearMessages() {
+            const messages = chatMessages.querySelectorAll('.message');
+            messages.forEach((msg, index) => {
+                setTimeout(() => {
+                    msg.classList.add('fade-out');
+                    setTimeout(() => msg.remove(), 500);
+                }, index * 100);
+            });
+        }
+
+        /**
+         * Fetches and plays audio from the /speak endpoint.
+         * @param {string} text - The text to synthesize and play.
+         */
+        async function playAudio(text) {
+            isBuddySpeaking = true;
+            sendWsMessage({ action: 'pause_listening' }); // Tell server to stop listening
+            setAnimation('talking');
+
+            try {
+                const response = await fetch(`${HTTP_SERVER_URL}/speak`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ text: text })
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Failed to generate speech');
+                }
+                
+                const audioBlob = await response.blob();
+                const audioUrl = URL.createObjectURL(audioBlob);
+                const audio = new Audio(audioUrl);
+                
+                await new Promise((resolve, reject) => {
+                    audio.onended = () => {
+                        URL.revokeObjectURL(audioUrl);
+                        resolve();
+                    };
+                    audio.onerror = (error) => {
+                        URL.revokeObjectURL(audioUrl);
+                        reject(error);
+                    };
+                    audio.play().catch(reject);
+                });
+                
+            } catch (error) {
+                console.error('Error playing audio:', error);
+                addMessage('System', 'Error playing audio.');
+            } finally {
+                isBuddySpeaking = false;
+                setAnimation('idle'); // Go to idle after talking
+                sendWsMessage({ action: 'resume_listening' }); // Tell server to start listening again
+            }
+        }
+
+        /**
+         * Sends a JSON message over the WebSocket.
+         * @param {object} message - The message object to send.
+         */
+        function sendWsMessage(message) {
+            if (webSocket && webSocket.readyState === WebSocket.OPEN) {
+                webSocket.send(JSON.stringify(message));
+            }
+        }
+
+        /**
+         * Handles incoming WebSocket messages.
+         * @param {MessageEvent} event - The WebSocket message event.
+         */
+        function handleWsMessage(event) {
+            try {
+                const message = JSON.parse(event.data);
+                
+                switch (message.type) {
+                    case 'status_update':
+                        if (message.status === 'listening') {
+                            updateStatus('Listening...', 'listening');
+                            setAnimation('listening');
+                        } else if (message.status === 'processing') {
+                            updateStatus('Processing...', 'processing');
+                            setAnimation('listening'); // Use listening animation for processing
+                        } else {
+                            updateStatus(message.text || 'Connected', 'connected');
+                        }
+                        break;
+                    
+                    case 'user_speech':
+                        clearMessages(); // Clear old messages
+                        addMessage('YOU', message.text);
+                        typingIndicator.classList.add('active');
+                        break;
+                        
+                    case 'buddy_response':
+                        typingIndicator.classList.remove('active');
+                        addMessage('Buddy', message.text);
+                        playAudio(message.text); // This will handle animation and state
+                        break;
+                    
+                    case 'error':
+                        addMessage('System', message.text);
+                        break;
+                }
+            } catch (error) {
+                console.error('Error parsing WebSocket message:', error);
+            }
+        }
+
+        /**
+         * Connects to the WebSocket server.
+         */
+        function connectWebSocket() {
+            if (reconnectInterval) {
+                clearInterval(reconnectInterval);
+                reconnectInterval = null;
+            }
+
+            webSocket = new WebSocket(WS_URL);
+            updateStatus('Connecting...', 'processing');
+
+            webSocket.onopen = () => {
+                console.log('WebSocket connected.');
+                updateStatus('Connected', 'connected');
+                // Send a "join" message with the user's name
+                sendWsMessage({ action: 'join', user_name: userName });
+                // Add a welcome message
+                setTimeout(() => {
+                    addMessage('Buddy', `Hi friend! How are you feeling today?`);
+                    // Tell server to start listening after welcome
+                    sendWsMessage({ action: 'resume_listening' });
+                }, 1000);
+            };
+
+            webSocket.onmessage = handleWsMessage;
+
+            webSocket.onerror = (error) => {
+                console.error('WebSocket error:', error);
+                updateStatus('Connection Error', 'disconnected');
+            };
+
+            webSocket.onclose = () => {
+                console.log('WebSocket disconnected.');
+                updateStatus('Disconnected. Retrying...', 'disconnected');
+                setAnimation('idle');
+                // Simple auto-reconnect
+                if (!reconnectInterval) {
+                    reconnectInterval = setInterval(connectWebSocket, 5000);
+                }
+            };
+        }
+
+        /**
+         * Ends the session.
+         */
+        function endSession() {
+            if (webSocket) {
+                webSocket.close();
+            }
+            if (reconnectInterval) {
+                clearInterval(reconnectInterval);
+            }
+            // Redirect to a session-end page, if you have one
+            window.location.href = 'index.html'; 
+        }
+
+        // --- Event Listeners ---
+        endBtn.addEventListener('click', endSession);
+
+        window.addEventListener('load', () => {
+            setAnimation('idle');
+            connectWebSocket();
+        });
+
+    </script>
+</body>
+</html>
