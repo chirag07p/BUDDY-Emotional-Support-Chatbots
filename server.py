@@ -1,3 +1,4 @@
+import os
 from flask import Flask, request, jsonify
 from core.base_app import (
     SQLiteDB,
@@ -76,5 +77,7 @@ def handle_chat():
 
 # --- Run the Server ---
 if __name__ == '__main__':
-    # This makes the server accessible on your local machine at http://127.0.0.1:5000
-    app.run(port=5000)
+    # Get port from environment variable (for deployment) or default to 5000 (for local)
+    port = int(os.environ.get('PORT', 5000))
+    # Bind to 0.0.0.0 to make it accessible from outside the container
+    app.run(host='0.0.0.0', port=port)

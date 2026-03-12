@@ -5,8 +5,6 @@ import requests
 from textblob import TextBlob
 import threading
 import queue
-import vosk
-import sounddevice as sd
 import json
 import sys
 import time
@@ -16,10 +14,18 @@ import asyncio
 from flask import Flask, render_template, request, jsonify, send_from_directory
 from flask_cors import CORS  # Add CORS support
 import edge_tts
-import pygame
 import io
-import numpy as np
 from flask import Flask, render_template, request, jsonify, send_from_directory, send_file
+
+# Optional imports for local hands-free mode (not needed for web deployment)
+try:
+    import vosk
+    import sounddevice as sd
+    import pygame
+    import numpy as np
+    AUDIO_AVAILABLE = True
+except ImportError:
+    AUDIO_AVAILABLE = False
 
 # --------- Enhanced Config with Edge TTS ----------
 class Config:
